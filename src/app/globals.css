@@ -1,26 +1,236 @@
 @import "tailwindcss";
 
+/* ── F37 Stout ── */
+@font-face {
+  font-family: 'Stout';
+  src: url('/fonts/F37Stout-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Stout';
+  src: url('/fonts/F37Stout-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Stout-Condensed';
+  src: url('/fonts/F37Stout-RegularCondensed.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Stout-Condensed';
+  src: url('/fonts/F37Stout-BoldCondensed.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Apercu ── */
+@font-face {
+  font-family: 'Apercu';
+  src: url('/fonts/apercu_light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Apercu';
+  src: url('/fonts/apercu_regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Apercu';
+  src: url('/fonts/apercu_medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Apercu';
+  src: url('/fonts/apercu_bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Apercu Mono ── */
+@font-face {
+  font-family: 'Apercu-Mono';
+  src: url('/fonts/apercu-mono-regular-pro.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Fanstake Design Tokens ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Colors */
+  --color-cobalt: #00059F;
+  --color-vintage-white: #FFFCE9;
+  --color-cobalt-dark: #272968;
+  --color-cobalt-med: #696CC3;
+  --color-cobalt-lite: #999BD9;
+  --color-sky: #D0D2FB;
+  --color-sky-light: #F0F0FC;
+  --color-buzzer: #F94B4B;
+  --color-stark-white: #FFFFFF;
+  --color-bg-page: #FDFDFE;
+  --color-bg-card: #FFFFFF;
+  --color-border: #D0D2FB;
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #64648c;
+  --color-text-muted: #9494b8;
+
+  /* Typography */
+  --font-display: 'Stout-Condensed', 'Stout', 'Chakra Petch', system-ui, sans-serif;
+  --font-body: 'Apercu', 'Poppins', system-ui, sans-serif;
+  --font-mono: 'Apercu-Mono', 'Courier New', monospace;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-card: 4px 4px 0px 0px rgba(208, 210, 251, 0.4), inset 0 0 0 1px #d0d2fb;
+  --shadow-card-hover: 6px 6px 0px 0px rgba(208, 210, 251, 0.5), inset 0 0 0 1px #999bd9;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--color-bg-page);
+  --color-foreground: var(--color-text-primary);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Utility Classes ── */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.fs-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 3px 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--font-body);
+}
+
+.fs-card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fs-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* Horizontal scroll container */
+.fs-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+.fs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Skeleton loading */
+.fs-skeleton {
+  background: linear-gradient(105deg, #e5e7eb 0% 40%, rgba(243, 244, 246, 0.9) 50%, #e5e7eb 60% 100%);
+  background-size: 200%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Reader view styles */
+.reader-content {
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+}
+
+.reader-content h1,
+.reader-content h2,
+.reader-content h3 {
+  font-family: var(--font-display);
+  color: var(--color-cobalt);
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.reader-content p {
+  margin-bottom: 1.25rem;
+}
+
+.reader-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+  margin: 1.5rem 0;
+}
+
+.reader-content a {
+  color: var(--color-cobalt);
+  text-decoration: underline;
+  text-decoration-color: var(--color-sky);
+  text-underline-offset: 3px;
+}
+
+.reader-content blockquote {
+  border-left: 4px solid var(--color-sky);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
