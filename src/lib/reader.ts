@@ -1,5 +1,5 @@
 import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
+import { parseHTML } from "linkedom";
 
 export interface ArticleContent {
   title: string;
@@ -41,12 +41,17 @@ function extractOgImage(doc: Document): string | null {
 export async function extractArticle(url: string): Promise<ArticleContent | null> {
   try {
     const html = await fetchHtml(url);
-    const dom = new JSDOM(html, { url });
-    const doc = dom.window.document;
+    const { document } = parseHTML(html);
 
-    const ogImage = extractOgImage(doc);
+    // Set documentURI for Readability's URL resolution
+    Object.defineProperty(document, "documentURI", {
+      value: url,
+      writable: false,
+    });
 
-    const reader = new Readability(doc);
+    const ogImage = extractOgImage(document as unknown as Document);
+
+    const reader = new Readability(document as unknown as Document);
     const article = reader.parse();
 
     if (!article) return null;
