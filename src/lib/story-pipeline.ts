@@ -1,14 +1,11 @@
+import { unstable_cache } from "next/cache";
 import { aggregateFeeds, type FeedItem } from "./aggregator";
 import { clusterStories, generateStoryId } from "./clusterer";
 import { summarizeStory } from "./summarizer";
 import type { Story, StoryFeed } from "./types";
 
-// In-memory caches
+// In-memory caches (for dev mode / same-process dedup)
 const storyCache = new Map<string, Story>();
-
-// Feed-level cache to prevent re-running the full pipeline on every request
-let feedCache: { data: StoryFeed; expiresAt: number } | null = null;
-const FEED_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function pickBestImage(articles: FeedItem[]): string | null {
   return articles.find((a) => a.imageUrl)?.imageUrl ?? null;
@@ -67,12 +64,7 @@ async function buildStory(
   return story;
 }
 
-export async function getStoryFeed(): Promise<StoryFeed> {
-  // Return cached feed if still fresh
-  if (feedCache && Date.now() < feedCache.expiresAt) {
-    return feedCache.data;
-  }
-
+async function runPipeline(): Promise<StoryFeed> {
   const { items, sources, lastUpdated } = await aggregateFeeds();
 
   // Cluster articles using AI
@@ -141,15 +133,21 @@ export async function getStoryFeed(): Promise<StoryFeed> {
       .map((s) => s.id);
   }
 
-  const result: StoryFeed = {
+  return {
     stories: allStories,
     unclustered,
     sources,
     lastUpdated,
   };
-
-  // Cache the result
-  feedCache = { data: result, expiresAt: Date.now() + FEED_CACHE_TTL };
-
-  return result;
 }
+
+/**
+ * Cached version of the pipeline. Uses Next.js persistent data cache
+ * so the same story data is shared across all serverless invocations
+ * (homepage ISR, story pages, API routes) on Vercel.
+ */
+export const getStoryFeed = unstable_cache(
+  runPipeline,
+  ["story-feed"],
+  { revalidate: 600 } // 10 minutes
+);
