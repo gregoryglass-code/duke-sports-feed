@@ -8,47 +8,59 @@ interface SummaryResult {
   keyPoints: string[];
 }
 
+function fallbackSummary(
+  clusterHeadline: string,
+  articles: FeedItem[]
+): SummaryResult {
+  return {
+    headline: clusterHeadline,
+    summary: articles.map((a) => a.snippet).join(" "),
+    keyPoints: [],
+  };
+}
+
 export async function summarizeStory(
   clusterHeadline: string,
   articles: FeedItem[]
 ): Promise<SummaryResult> {
-  // Extract full content from up to 3 articles (most recent first)
-  const sorted = [...articles].sort(
-    (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
-  );
-  const toExtract = sorted.slice(0, 3);
+  try {
+    // Extract full content from up to 3 articles (most recent first)
+    const sorted = [...articles].sort(
+      (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+    );
+    const toExtract = sorted.slice(0, 3);
 
-  const extracted = await Promise.allSettled(
-    toExtract.map((a) => extractArticle(a.link))
-  );
+    const extracted = await Promise.allSettled(
+      toExtract.map((a) => extractArticle(a.link))
+    );
 
-  const articleContents = sorted.map((article, i) => {
-    const result = i < extracted.length ? extracted[i] : undefined;
-    const fullContent =
-      result?.status === "fulfilled" && result.value
-        ? result.value.content
-            .replace(/<[^>]*>/g, "")
-            .replace(/\s+/g, " ")
-            .trim()
-            .slice(0, 3000)
-        : null;
+    const articleContents = sorted.map((article, i) => {
+      const result = i < extracted.length ? extracted[i] : undefined;
+      const fullContent =
+        result?.status === "fulfilled" && result.value
+          ? result.value.content
+              .replace(/<[^>]*>/g, "")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 3000)
+          : null;
 
-    return {
-      source: article.source,
-      title: article.title,
-      content: fullContent ?? article.snippet,
-    };
-  });
+      return {
+        source: article.source,
+        title: article.title,
+        content: fullContent ?? article.snippet,
+      };
+    });
 
-  const client = getClient();
+    const client = getClient();
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6-20250514",
-    max_tokens: 1500,
-    messages: [
-      {
-        role: "user",
-        content: `You are a sports journalist writing a comprehensive news briefing. Synthesize these ${articles.length} articles from different sources into a single authoritative summary.
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6-20250514",
+      max_tokens: 1500,
+      messages: [
+        {
+          role: "user",
+          content: `You are a sports journalist writing a comprehensive news briefing. Synthesize these ${articles.length} articles from different sources into a single authoritative summary.
 
 Topic: ${clusterHeadline}
 
@@ -74,15 +86,15 @@ Rules:
 - Include 3-5 key points as concise bullet strings
 - Keep the summary focused and scannable
 - Return ONLY the JSON object`,
-      },
-    ],
-  });
+        },
+      ],
+    });
 
-  const text =
-    response.content[0].type === "text" ? response.content[0].text : "";
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
 
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
 
     const parsed = JSON.parse(jsonMatch[0]) as SummaryResult;
@@ -92,11 +104,7 @@ Rules:
       keyPoints: Array.isArray(parsed.keyPoints) ? parsed.keyPoints : [],
     };
   } catch (err) {
-    console.error("Failed to parse summary response:", err);
-    return {
-      headline: clusterHeadline,
-      summary: articles.map((a) => a.snippet).join(" "),
-      keyPoints: [],
-    };
+    console.error(`[Summarizer] Failed for "${clusterHeadline}":`, err instanceof Error ? err.message : err);
+    return fallbackSummary(clusterHeadline, articles);
   }
 }

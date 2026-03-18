@@ -92,17 +92,15 @@ export async function getStoryFeed(): Promise<StoryFeed> {
     }
   }
 
-  // Build stories from clusters (in parallel)
-  const storyPromises = clusters.map((cluster) => {
-    const articles = cluster.articleIndices.map((i) => items[i]);
-    return buildStory(cluster.headline, articles);
-  });
-
-  const storyResults = await Promise.allSettled(storyPromises);
+  // Build stories from clusters sequentially to avoid rate limits on Sonnet
   const stories: Story[] = [];
-  for (const result of storyResults) {
-    if (result.status === "fulfilled") {
-      stories.push(result.value);
+  for (const cluster of clusters) {
+    const articles = cluster.articleIndices.map((i) => items[i]);
+    try {
+      const story = await buildStory(cluster.headline, articles);
+      stories.push(story);
+    } catch (err) {
+      console.error(`[Pipeline] Failed to build story "${cluster.headline}":`, err instanceof Error ? err.message : err);
     }
   }
 
