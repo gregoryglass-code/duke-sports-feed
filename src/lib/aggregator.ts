@@ -21,6 +21,7 @@ type CustomItem = {
   enclosure?: { url?: string; type?: string };
   "media:content"?: { $?: { url?: string } };
   "media:thumbnail"?: { $?: { url?: string } };
+  "News:Source"?: string;
 };
 
 const parser = new Parser<Record<string, unknown>, CustomItem>({
@@ -33,6 +34,7 @@ const parser = new Parser<Record<string, unknown>, CustomItem>({
     item: [
       ["media:content", "media:content"],
       ["media:thumbnail", "media:thumbnail"],
+      ["News:Source", "News:Source"],
     ],
   },
 });
@@ -52,29 +54,65 @@ function extractSnippet(content: string, maxLen = 200): string {
 }
 
 function extractImageFromRss(item: CustomItem, content: string): string | null {
-  // 1. enclosure with image type
   if (item.enclosure?.url && item.enclosure.type?.startsWith("image")) {
     return item.enclosure.url;
   }
-  // 2. media:content
   const mediaContent = item["media:content"];
   if (mediaContent && typeof mediaContent === "object") {
     const url = (mediaContent as { $?: { url?: string } }).$?.url;
     if (url) return url;
   }
-  // 3. media:thumbnail
   const mediaThumbnail = item["media:thumbnail"];
   if (mediaThumbnail && typeof mediaThumbnail === "object") {
     const url = (mediaThumbnail as { $?: { url?: string } }).$?.url;
     if (url) return url;
   }
-  // 4. First <img> in content
   const imgMatch = content.match(/<img[^>]+src=["']([^"']+)["']/i);
   if (imgMatch?.[1]) return imgMatch[1];
-  // 5. enclosure without type check (some feeds don't set type)
   if (item.enclosure?.url) return item.enclosure.url;
-
   return null;
+}
+
+/**
+ * Extract the real article URL from a Bing News redirect link.
+ * Bing links look like: http://www.bing.com/news/apiclick.aspx?...&url=https%3a%2f%2fwww.espn.com%2f...
+ */
+function extractBingUrl(link: string): string {
+  try {
+    const url = new URL(link);
+    const realUrl = url.searchParams.get("url");
+    return realUrl || link;
+  } catch {
+    return link;
+  }
+}
+
+/**
+ * Extract the publisher name from a Bing News item title.
+ * Bing appends " - Source Name" to titles; Bing also provides News:Source field.
+ */
+function extractBingSource(item: CustomItem): string {
+  // Bing News provides a News:Source field
+  if (item["News:Source"]) return item["News:Source"];
+
+  // Fallback: extract from title suffix " - Publisher"
+  const title = item.title ?? "";
+  const dashIdx = title.lastIndexOf(" - ");
+  if (dashIdx > 0 && dashIdx > title.length - 60) {
+    return title.substring(dashIdx + 3).trim();
+  }
+  return "Unknown";
+}
+
+/**
+ * Clean Bing News titles that append " - Source Name" at the end.
+ */
+function cleanBingTitle(title: string): string {
+  const dashIdx = title.lastIndexOf(" - ");
+  if (dashIdx > 0 && dashIdx > title.length - 60) {
+    return title.substring(0, dashIdx).trim();
+  }
+  return title;
 }
 
 async function fetchFeed(source: FeedSource): Promise<FeedItem[]> {
@@ -83,15 +121,24 @@ async function fetchFeed(source: FeedSource): Promise<FeedItem[]> {
     const items: FeedItem[] = [];
 
     for (const item of feed.items ?? []) {
-      const title = item.title ?? "";
+      let title = item.title ?? "";
       const content = item.contentSnippet ?? item.content ?? "";
+      let link = item.link ?? "";
+      let sourceName = source.name;
+
+      // Handle Bing News feeds: extract real URL and source name
+      if (source.bingNews) {
+        link = extractBingUrl(link);
+        sourceName = extractBingSource(item);
+        title = cleanBingTitle(title);
+      }
 
       if (source.dukeSpecific || isDukeRelated(title, content)) {
         items.push({
           title,
-          link: item.link ?? "",
+          link,
           pubDate: item.pubDate ?? item.isoDate ?? new Date().toISOString(),
-          source: source.name,
+          source: sourceName,
           category: source.category,
           snippet: extractSnippet(content),
           imageUrl: extractImageFromRss(item, item.content ?? ""),
@@ -133,22 +180,34 @@ export async function aggregateFeeds(): Promise<{
     }
   }
 
-  // Deduplicate by title similarity
+  // Deduplicate by normalized title (first 60 chars)
   const seen = new Set<string>();
-  const unique = allItems.filter((item) => {
+  const deduped = allItems.filter((item) => {
     const key = item.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
+  // Cap per-source to prevent any single source from drowning out diversity.
+  // Bing News articles each have their own source (ESPN, Yahoo, etc.) so they
+  // are unaffected. This primarily caps blog feeds like Ball Durham (90+ articles).
+  const MAX_PER_SOURCE = 15;
+  const sourceCounts = new Map<string, number>();
+  const capped = deduped.filter((item) => {
+    const count = sourceCounts.get(item.source) ?? 0;
+    if (count >= MAX_PER_SOURCE) return false;
+    sourceCounts.set(item.source, count + 1);
+    return true;
+  });
+
   // Sort newest first
-  unique.sort(
+  capped.sort(
     (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
   );
 
   return {
-    items: unique,
+    items: capped,
     sources,
     lastUpdated: new Date().toISOString(),
   };

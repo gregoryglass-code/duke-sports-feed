@@ -3,10 +3,35 @@ export interface FeedSource {
   url: string;
   dukeSpecific: boolean;
   category: "basketball" | "football" | "all-sports" | "conference";
+  /** If true, links are Bing News redirects with real URL in ?url= param */
+  bingNews?: boolean;
 }
 
 export const FEED_SOURCES: FeedSource[] = [
-  // Duke-specific feeds
+  // ── Bing News search (primary discovery — returns articles from all sources) ──
+  {
+    name: "Bing: Duke Basketball",
+    url: "https://www.bing.com/news/search?q=Duke+Blue+Devils+basketball&format=rss&count=30",
+    dukeSpecific: true,
+    category: "basketball",
+    bingNews: true,
+  },
+  {
+    name: "Bing: Duke Football",
+    url: "https://www.bing.com/news/search?q=Duke+Blue+Devils+football&format=rss&count=20",
+    dukeSpecific: true,
+    category: "football",
+    bingNews: true,
+  },
+  {
+    name: "Bing: Duke Sports",
+    url: "https://www.bing.com/news/search?q=%22Duke+Blue+Devils%22+sports&format=rss&count=20",
+    dukeSpecific: true,
+    category: "all-sports",
+    bingNews: true,
+  },
+
+  // ── Duke-specific blogs (insider depth) ──
   {
     name: "Duke Basketball Report",
     url: "https://www.dukebasketballreport.com/rss/index.xml",
@@ -23,37 +48,6 @@ export const FEED_SOURCES: FeedSource[] = [
     name: "GoDuke.com Basketball",
     url: "https://goduke.com/rss.aspx?path=mbball",
     dukeSpecific: true,
-    category: "basketball",
-  },
-  // Conference / league feeds (filtered for Duke content)
-  {
-    name: "ACC Official",
-    url: "https://theacc.com/rss.aspx",
-    dukeSpecific: false,
-    category: "conference",
-  },
-  {
-    name: "ESPN College Basketball",
-    url: "https://www.espn.com/espn/rss/ncb/news",
-    dukeSpecific: false,
-    category: "basketball",
-  },
-  {
-    name: "ESPN College Football",
-    url: "https://www.espn.com/espn/rss/ncf/news",
-    dukeSpecific: false,
-    category: "football",
-  },
-  {
-    name: "CBS Sports College Basketball",
-    url: "https://www.cbssports.com/rss/headlines/college-basketball",
-    dukeSpecific: false,
-    category: "basketball",
-  },
-  {
-    name: "NCAA DI Men's Basketball",
-    url: "https://www.ncaa.com/news/basketball-men/d1/rss.xml",
-    dukeSpecific: false,
     category: "basketball",
   },
 ];
