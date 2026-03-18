@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { aggregateFeeds, type FeedItem } from "./aggregator";
 import { clusterStories, generateStoryId } from "./clusterer";
 import { summarizeStory } from "./summarizer";
@@ -142,12 +141,14 @@ async function runPipeline(): Promise<StoryFeed> {
 }
 
 /**
- * Cached version of the pipeline. Uses Next.js persistent data cache
- * so the same story data is shared across all serverless invocations
- * (homepage ISR, story pages, API routes) on Vercel.
+ * In-process cache ensures the same StoryFeed is returned for all pages
+ * during a single build or serverless invocation. This is critical so
+ * the homepage and generateStaticParams produce matching story IDs.
  */
-export const getStoryFeed = unstable_cache(
-  runPipeline,
-  ["story-feed"],
-  { revalidate: 600 } // 10 minutes
-);
+let cachedFeed: StoryFeed | null = null;
+
+export async function getStoryFeed(): Promise<StoryFeed> {
+  if (cachedFeed) return cachedFeed;
+  cachedFeed = await runPipeline();
+  return cachedFeed;
+}
