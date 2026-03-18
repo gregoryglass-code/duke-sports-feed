@@ -1,0 +1,157 @@
+import { aggregateFeeds, type FeedItem } from "./aggregator";
+import { clusterStories, generateStoryId } from "./clusterer";
+import { summarizeStory } from "./summarizer";
+import type { Story, StoryFeed } from "./types";
+
+// In-memory caches
+const storyCache = new Map<string, Story>();
+
+// Feed-level cache to prevent re-running the full pipeline on every request
+let feedCache: { data: StoryFeed; expiresAt: number } | null = null;
+const FEED_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function pickBestImage(articles: FeedItem[]): string | null {
+  return articles.find((a) => a.imageUrl)?.imageUrl ?? null;
+}
+
+function pickCategory(articles: FeedItem[]): FeedItem["category"] {
+  const counts: Record<string, number> = {};
+  for (const a of articles) {
+    counts[a.category] = (counts[a.category] ?? 0) + 1;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0] as FeedItem["category"];
+}
+
+async function buildStory(
+  headline: string,
+  articles: FeedItem[]
+): Promise<Story> {
+  const id = generateStoryId(articles);
+
+  // Check cache
+  const cached = storyCache.get(id);
+  if (cached) return cached;
+
+  const uniqueSources = new Set(articles.map((a) => a.source));
+  const latestDate = articles
+    .map((a) => new Date(a.pubDate).getTime())
+    .sort((a, b) => b - a)[0];
+
+  let summary: { headline: string; summary: string; keyPoints: string[] };
+
+  if (articles.length >= 2) {
+    summary = await summarizeStory(headline, articles);
+  } else {
+    // Standalone article — skip AI
+    summary = {
+      headline: articles[0].title,
+      summary: articles[0].snippet,
+      keyPoints: [],
+    };
+  }
+
+  const story: Story = {
+    id,
+    headline: summary.headline,
+    summary: summary.summary,
+    keyPoints: summary.keyPoints,
+    category: pickCategory(articles),
+    articles,
+    sourceCount: uniqueSources.size,
+    latestDate: new Date(latestDate).toISOString(),
+    imageUrl: pickBestImage(articles),
+    relatedStoryIds: [],
+  };
+
+  storyCache.set(id, story);
+  return story;
+}
+
+export async function getStoryFeed(): Promise<StoryFeed> {
+  // Return cached feed if still fresh
+  if (feedCache && Date.now() < feedCache.expiresAt) {
+    return feedCache.data;
+  }
+
+  const { items, sources, lastUpdated } = await aggregateFeeds();
+
+  // Cluster articles using AI
+  let clusters: Awaited<ReturnType<typeof clusterStories>> = [];
+  try {
+    clusters = await clusterStories(items);
+  } catch (err) {
+    console.error("Clustering failed, falling back to no clusters:", err);
+    clusters = [];
+  }
+
+  // Track which articles are clustered
+  const clusteredIndices = new Set<number>();
+  for (const cluster of clusters) {
+    for (const idx of cluster.articleIndices) {
+      clusteredIndices.add(idx);
+    }
+  }
+
+  // Build stories from clusters (in parallel)
+  const storyPromises = clusters.map((cluster) => {
+    const articles = cluster.articleIndices.map((i) => items[i]);
+    return buildStory(cluster.headline, articles);
+  });
+
+  const storyResults = await Promise.allSettled(storyPromises);
+  const stories: Story[] = [];
+  for (const result of storyResults) {
+    if (result.status === "fulfilled") {
+      stories.push(result.value);
+    }
+  }
+
+  // Unclustered articles become standalone
+  const unclustered = items.filter((_, i) => !clusteredIndices.has(i));
+
+  // Build standalone stories for unclustered articles
+  const standaloneStories = unclustered.map((item) => {
+    const id = generateStoryId([item]);
+    return {
+      id,
+      headline: item.title,
+      summary: item.snippet,
+      keyPoints: [],
+      category: item.category,
+      articles: [item],
+      sourceCount: 1,
+      latestDate: item.pubDate,
+      imageUrl: item.imageUrl,
+      relatedStoryIds: [],
+    } satisfies Story;
+  });
+
+  // Combine: multi-source stories first, then standalone
+  const allStories = [...stories, ...standaloneStories];
+
+  // Sort all by latest date
+  allStories.sort(
+    (a, b) =>
+      new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime()
+  );
+
+  // Link related stories (same category)
+  for (const story of allStories) {
+    story.relatedStoryIds = allStories
+      .filter((s) => s.id !== story.id && s.category === story.category)
+      .slice(0, 6)
+      .map((s) => s.id);
+  }
+
+  const result: StoryFeed = {
+    stories: allStories,
+    unclustered,
+    sources,
+    lastUpdated,
+  };
+
+  // Cache the result
+  feedCache = { data: result, expiresAt: Date.now() + FEED_CACHE_TTL };
+
+  return result;
+}
