@@ -1,6 +1,5 @@
 import type { FeedItem } from "./aggregator";
 import { getClient } from "./ai-client";
-import { extractArticle } from "./reader";
 
 interface SummaryResult {
   headline: string;
@@ -24,16 +23,14 @@ export async function summarizeStory(
   articles: FeedItem[]
 ): Promise<SummaryResult> {
   try {
-    // Use RSS titles and snippets for fast summarization (no article fetching)
     const sorted = [...articles].sort(
       (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     );
 
-    const articleContents = sorted.map((article) => ({
-      source: article.source,
-      title: article.title,
-      content: article.snippet,
-    }));
+    // Number sources so the AI can use inline citations [1][2]
+    const sourceList = sorted
+      .map((a, i) => `[${i + 1}] ${a.source}: "${a.title}" — ${a.snippet}`)
+      .join("\n\n");
 
     const client = getClient();
 
@@ -43,31 +40,24 @@ export async function summarizeStory(
       messages: [
         {
           role: "user",
-          content: `You are a sports journalist writing a comprehensive news briefing. Synthesize these ${articles.length} articles from different sources into a single authoritative summary.
+          content: `You are a beat writer covering Duke athletics. Write like you're the insider who lives and breathes Blue Devils sports — confident, knowledgeable, with personality. Not a wire service robot.
 
-Topic: ${clusterHeadline}
+Synthesize these ${articles.length} sources into a single narrative:
 
-Sources:
-${articleContents
-  .map(
-    (a, i) => `--- Source ${i + 1}: ${a.source} ---
-Title: ${a.title}
-${a.content}`
-  )
-  .join("\n\n")}
+${sourceList}
 
-Write a JSON response with this exact structure:
+Return JSON:
 {
-  "headline": "A specific, engaging headline (max 100 chars)",
-  "summary": "A comprehensive 2-4 paragraph synthesis that draws from all sources. Mention sources by name when attributing specific facts or quotes (e.g., 'According to ESPN...'). Write in a neutral, informative tone. Use plain text, no markdown.",
-  "keyPoints": ["Key point 1", "Key point 2", "Key point 3"]
+  "headline": "A punchy, specific headline (max 90 chars). Write it like a beat writer, not a wire service.",
+  "summary": "2-3 paragraphs written in your voice as a Duke beat writer. DO NOT mention source names in the text (no 'According to Ball Durham' or 'ESPN reports'). Instead, use inline citation numbers like [1] or [2][3] after key facts to reference the numbered sources above. Write with confidence and personality — you're the expert synthesizing what you've read across these outlets into one authoritative take. Plain text only, no markdown.",
+  "keyPoints": ["Punchy key point 1", "Key point 2", "Key point 3"]
 }
 
 Rules:
-- Synthesize, don't just concatenate — create a unified narrative
-- Attribute key facts to their sources by name
-- Include 3-5 key points as concise bullet strings
-- Keep the summary focused and scannable
+- NEVER mention source names in the summary text. Use [1], [2], etc. instead.
+- Write with authority and personality, not dry news wire style
+- Synthesize into a unified narrative, don't list facts from each source
+- 3-5 key points, each one sentence max
 - Return ONLY the JSON object`,
         },
       ],

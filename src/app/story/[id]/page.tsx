@@ -1,4 +1,5 @@
 import { getStoryFeed } from "@/lib/story-pipeline";
+import type { FeedItem } from "@/lib/aggregator";
 import Link from "next/link";
 
 export const revalidate = 600;
@@ -6,6 +7,44 @@ export const revalidate = 600;
 export async function generateStaticParams() {
   const feed = await getStoryFeed();
   return feed.stories.map((story) => ({ id: story.id }));
+}
+
+/**
+ * Render summary text with [1], [2] etc. as clickable superscript citation badges
+ * linking to the corresponding source article.
+ */
+function renderSummaryWithCitations(summary: string, articles: FeedItem[]) {
+  // Split on citation patterns like [1], [2][3], [1][2][3]
+  const parts = summary.split(/(\[\d+\](?:\[\d+\])*)/g);
+
+  return parts.map((part, i) => {
+    // Check if this part is a citation group like [1] or [2][3]
+    const citationMatch = part.match(/\[(\d+)\]/g);
+    if (citationMatch) {
+      return (
+        <span key={i} className="inline-flex gap-0.5 mx-0.5">
+          {citationMatch.map((cite, j) => {
+            const num = parseInt(cite.replace(/[\[\]]/g, ""), 10);
+            const article = articles[num - 1];
+            if (!article) return null;
+            return (
+              <a
+                key={j}
+                href={article.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`${article.source}: ${article.title}`}
+                className="inline-flex items-center justify-center h-[18px] min-w-[18px] px-1 rounded-full bg-[var(--color-cobalt)] text-white text-[10px] font-bold no-underline hover:bg-[var(--color-cobalt-dark)] transition-colors align-super -translate-y-0.5"
+              >
+                {num}
+              </a>
+            );
+          })}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }
 
 interface PageProps {
@@ -120,7 +159,7 @@ export default async function StoryPage({ params }: PageProps) {
               {story.headline}
             </h1>
 
-            {/* Source pills */}
+            {/* Source pills with citation numbers */}
             {story.sourceCount > 1 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 {story.articles.map((article, i) => (
@@ -131,9 +170,9 @@ export default async function StoryPage({ params }: PageProps) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--color-cobalt-lite)] hover:text-[var(--color-cobalt)]"
                   >
-                    <svg className="h-3 w-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
-                    </svg>
+                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-[var(--color-cobalt)] text-white text-[10px] font-bold">
+                      {i + 1}
+                    </span>
                     {article.source}
                   </a>
                 ))}
@@ -157,9 +196,9 @@ export default async function StoryPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* Summary */}
+            {/* Summary with inline citations */}
             <div className="text-[var(--color-text-primary)] text-base sm:text-lg leading-relaxed whitespace-pre-line">
-              {story.summary}
+              {renderSummaryWithCitations(story.summary, story.articles)}
             </div>
 
             {/* Divider */}
