@@ -24,33 +24,16 @@ export async function summarizeStory(
   articles: FeedItem[]
 ): Promise<SummaryResult> {
   try {
-    // Extract full content from up to 3 articles (most recent first)
+    // Use RSS titles and snippets for fast summarization (no article fetching)
     const sorted = [...articles].sort(
       (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     );
-    const toExtract = sorted.slice(0, 3);
 
-    const extracted = await Promise.allSettled(
-      toExtract.map((a) => extractArticle(a.link))
-    );
-
-    const articleContents = sorted.map((article, i) => {
-      const result = i < extracted.length ? extracted[i] : undefined;
-      const fullContent =
-        result?.status === "fulfilled" && result.value
-          ? result.value.content
-              .replace(/<[^>]*>/g, "")
-              .replace(/\s+/g, " ")
-              .trim()
-              .slice(0, 3000)
-          : null;
-
-      return {
-        source: article.source,
-        title: article.title,
-        content: fullContent ?? article.snippet,
-      };
-    });
+    const articleContents = sorted.map((article) => ({
+      source: article.source,
+      title: article.title,
+      content: article.snippet,
+    }));
 
     const client = getClient();
 
