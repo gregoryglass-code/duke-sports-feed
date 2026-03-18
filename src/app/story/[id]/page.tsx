@@ -3,6 +3,11 @@ import Link from "next/link";
 
 export const revalidate = 600;
 
+export async function generateStaticParams() {
+  const feed = await getStoryFeed();
+  return feed.stories.map((story) => ({ id: story.id }));
+}
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
