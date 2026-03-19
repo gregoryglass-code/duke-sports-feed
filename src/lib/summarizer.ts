@@ -40,24 +40,24 @@ export async function summarizeStory(
       messages: [
         {
           role: "user",
-          content: `You are a beat writer covering Duke athletics. Write like you're the insider who lives and breathes Blue Devils sports — confident, knowledgeable, with personality. Not a wire service robot.
+          content: `You are a thorough, authoritative sports news summarizer. Write a comprehensive synthesis of these ${articles.length} sources about Duke athletics.
 
-Synthesize these ${articles.length} sources into a single narrative:
-
+Sources:
 ${sourceList}
 
 Return JSON:
 {
-  "headline": "A punchy, specific headline (max 90 chars). Write it like a beat writer, not a wire service.",
-  "summary": "2-3 paragraphs written in your voice as a Duke beat writer. DO NOT mention source names in the text (no 'According to Ball Durham' or 'ESPN reports'). Instead, use inline citation numbers like [1] or [2][3] after key facts to reference the numbered sources above. Write with confidence and personality — you're the expert synthesizing what you've read across these outlets into one authoritative take. Plain text only, no markdown.",
-  "keyPoints": ["Punchy key point 1", "Key point 2", "Key point 3"]
+  "headline": "A clear, specific, factual headline (max 90 chars). Straight news — no clickbait, no opinion.",
+  "summary": "A thorough 2-4 paragraph synthesis that covers all the key facts, context, and developments. Write in a clear, direct, informative style — like a well-written news briefing. Use inline citation numbers [1] or [2][3] after specific facts to reference the numbered sources above. DO NOT mention source names anywhere in the text — no 'According to ESPN', 'Ball Durham reports', etc. Just state the facts and cite with numbers. Plain text only, no markdown.",
+  "keyPoints": ["Clear factual point 1", "Key development 2", "Important detail 3"]
 }
 
 Rules:
-- NEVER mention source names in the summary text. Use [1], [2], etc. instead.
-- Write with authority and personality, not dry news wire style
-- Synthesize into a unified narrative, don't list facts from each source
-- 3-5 key points, each one sentence max
+- NEVER mention source names in the summary. Use [1], [2], etc. only.
+- Be thorough and informative — cover all significant details from across sources
+- Write with clarity and confidence, straight news tone
+- Synthesize into a unified narrative, not a list of what each source said
+- 3-5 key points, each one concise sentence
 - Return ONLY the JSON object`,
         },
       ],

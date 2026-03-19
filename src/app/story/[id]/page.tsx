@@ -34,7 +34,7 @@ function renderSummaryWithCitations(summary: string, articles: FeedItem[]) {
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`${article.source}: ${article.title}`}
-                className="inline-flex items-center justify-center h-[18px] min-w-[18px] px-1 rounded-full bg-[var(--color-cobalt)] text-white text-[10px] font-bold no-underline hover:bg-[var(--color-cobalt-dark)] transition-colors align-super -translate-y-0.5"
+                className="inline-flex items-center justify-center h-[17px] min-w-[17px] px-1 rounded-full bg-[var(--color-sky)] text-[var(--color-cobalt-med)] text-[10px] font-bold no-underline hover:bg-[var(--color-cobalt-lite)] hover:text-white transition-colors align-super -translate-y-0.5"
               >
                 {num}
               </a>
@@ -69,19 +69,6 @@ export default async function StoryPage({ params }: PageProps) {
   if (!story) {
     return (
       <div className="min-h-screen bg-[var(--color-bg-page)]">
-        <header className="bg-[var(--color-cobalt)] text-white">
-          <div className="mx-auto max-w-3xl px-4 py-4">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-cobalt-lite)] hover:text-white transition-colors"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-              </svg>
-              Back to Feed
-            </Link>
-          </div>
-        </header>
         <main className="mx-auto max-w-3xl px-4 py-12 text-center">
           <div className="fs-card p-12">
             <h1 className="font-display text-2xl text-[var(--color-cobalt)] mb-4">
@@ -106,22 +93,27 @@ export default async function StoryPage({ params }: PageProps) {
     story.relatedStoryIds.includes(s.id)
   );
 
+  // Find prev/next stories for pagination
+  const storyIndex = feed.stories.findIndex((s) => s.id === id);
+  const prevStory = storyIndex > 0 ? feed.stories[storyIndex - 1] : null;
+  const nextStory = storyIndex < feed.stories.length - 1 ? feed.stories[storyIndex + 1] : null;
+
   return (
     <div className="min-h-screen bg-[var(--color-bg-page)]">
-      {/* Header */}
-      <header className="bg-[var(--color-cobalt)] text-white">
-        <div className="mx-auto max-w-3xl px-4 py-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-cobalt-lite)] hover:text-white transition-colors"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+      {/* Breadcrumb */}
+      <div className="bg-[var(--color-sky-light)] border-b border-[var(--color-border)]">
+        <div className="mx-auto max-w-3xl px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+            <Link href="/" className="hover:text-[var(--color-cobalt)] transition-colors">Home</Link>
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
-            Back to Feed
-          </Link>
+            <span className="text-[var(--color-text-secondary)] truncate max-w-[300px]">
+              {story.headline}
+            </span>
+          </div>
         </div>
-      </header>
+      </div>
 
       {/* Hero image */}
       {story.imageUrl && (
@@ -170,7 +162,7 @@ export default async function StoryPage({ params }: PageProps) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--color-cobalt-lite)] hover:text-[var(--color-cobalt)]"
                   >
-                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-[var(--color-cobalt)] text-white text-[10px] font-bold">
+                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-[var(--color-sky)] text-[var(--color-cobalt-med)] text-[10px] font-bold">
                       {i + 1}
                     </span>
                     {article.source}
@@ -244,20 +236,54 @@ export default async function StoryPage({ params }: PageProps) {
               })}
             </div>
 
-            {/* Footer */}
-            <div className="mt-8 pt-6 border-t border-[var(--color-border)]">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--color-cobalt)] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--color-cobalt-dark)]"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                </svg>
-                Back to Feed
-              </Link>
-            </div>
           </div>
         </div>
+
+        {/* Prev / Next navigation */}
+        {(prevStory || nextStory) && (
+          <div className="mt-8 grid grid-cols-2 gap-4">
+            {prevStory ? (
+              <Link
+                href={`/story/${prevStory.id}`}
+                className="fs-card p-4 group flex items-start gap-3 col-start-1"
+              >
+                <svg className="h-5 w-5 mt-0.5 shrink-0 text-[var(--color-cobalt-lite)] group-hover:text-[var(--color-cobalt)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                    Previous
+                  </span>
+                  <h4 className="text-sm font-medium text-[var(--color-text-primary)] line-clamp-2 group-hover:text-[var(--color-cobalt)] transition-colors mt-0.5">
+                    {prevStory.headline}
+                  </h4>
+                </div>
+              </Link>
+            ) : (
+              <div />
+            )}
+            {nextStory ? (
+              <Link
+                href={`/story/${nextStory.id}`}
+                className="fs-card p-4 group flex items-start gap-3 text-right flex-row-reverse col-start-2"
+              >
+                <svg className="h-5 w-5 mt-0.5 shrink-0 text-[var(--color-cobalt-lite)] group-hover:text-[var(--color-cobalt)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                    Next
+                  </span>
+                  <h4 className="text-sm font-medium text-[var(--color-text-primary)] line-clamp-2 group-hover:text-[var(--color-cobalt)] transition-colors mt-0.5">
+                    {nextStory.headline}
+                  </h4>
+                </div>
+              </Link>
+            ) : (
+              <div />
+            )}
+          </div>
+        )}
 
         {/* Related Stories */}
         {related.length > 0 && (
