@@ -18,6 +18,24 @@ function fallbackSummary(
   };
 }
 
+/**
+ * Build the source block for each article.
+ * Prefers fullText (from article enrichment) over RSS snippet.
+ */
+function buildSourceEntry(article: FeedItem, index: number): string {
+  const num = index + 1;
+  if (article.fullText) {
+    // Truncate full text to ~3000 chars at a sentence boundary
+    let text = article.fullText;
+    if (text.length > 3000) {
+      const cutoff = text.lastIndexOf(".", 3000);
+      text = cutoff > 2000 ? text.slice(0, cutoff + 1) : text.slice(0, 3000);
+    }
+    return `[${num}] ${article.source}: "${article.title}"\n${text}`;
+  }
+  return `[${num}] ${article.source}: "${article.title}" — ${article.snippet}`;
+}
+
 export async function summarizeStory(
   clusterHeadline: string,
   articles: FeedItem[],
@@ -28,10 +46,11 @@ export async function summarizeStory(
       (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
     );
 
-    // Number sources so the AI can use inline citations [1][2]
     const sourceList = sorted
-      .map((a, i) => `[${i + 1}] ${a.source}: "${a.title}" — ${a.snippet}`)
+      .map((a, i) => buildSourceEntry(a, i))
       .join("\n\n");
+
+    const hasFullText = sorted.some((a) => a.fullText);
 
     const client = getClient();
 
@@ -41,7 +60,7 @@ export async function summarizeStory(
 
     const keyPointsRule = isMultiSource
       ? "- keyPoints MUST be an empty array [] for multi-source stories"
-      : "- Include 3-5 key points, each one concise sentence with specific facts";
+      : "- Include 3-5 key points, each one concise sentence";
 
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -49,33 +68,27 @@ export async function summarizeStory(
       messages: [
         {
           role: "user",
-          content: `You are a thorough, substantive sports journalist writing about Duke athletics. Your writing style:
-- Smart, specific, and grounded in facts — like The Athletic, not a wire service
-- Every claim includes concrete details: full names, stats, dates, game scores, record numbers
-- You explain the WHY behind developments, not just the WHAT
-- Accessible and polished prose, conversational but clearly edited
-- You NEVER hedge or say "details are unknown" when the sources contain those details — extract every specific fact available
-- You synthesize across sources to build a complete picture a knowledgeable fan would want
+          content: `You are a sports journalist synthesizing ${articles.length} sources about Duke athletics into a single briefing.
 
-Synthesize these ${articles.length} sources:
+Sources:
 
 ${sourceList}
 
-CRITICAL: Extract and include EVERY specific detail from the sources — names, numbers, dates, stats, records, quotes. If a source mentions a person's name, use it. If it has a stat line, include it. Never generalize when specifics are available.
+GROUNDING RULE: You may ONLY state facts that are EXPLICITLY present in the source text above. Do not infer, assume, or fabricate any details — no dates, locations, scores, statistics, or names that are not directly stated in the sources. If the sources lack detail on a point, simply omit it. Never fill gaps with plausible-sounding information.
 
 Return JSON:
 {
-  "headline": "A specific, factual headline (max 90 chars). Include names/numbers when relevant.",
-  "summary": "A thorough 2-4 paragraph synthesis. Write with clarity and substance. Use inline citation numbers [1] or [2][3] after key facts to reference the numbered sources. DO NOT mention source names in the text — no 'According to ESPN', 'Ball Durham reports', etc. State facts directly and cite with numbers. The reader should come away fully informed on this story. Plain text only, no markdown.",
+  "headline": "A specific, factual headline (max 90 chars). Only reference details present in the sources.",
+  "summary": "${hasFullText ? "A thorough 1-3 paragraph synthesis" : "A concise 1-2 paragraph synthesis"} based on the source text provided. Write with clarity and substance — polished prose, not a wire service recap. Use inline citation numbers [1] or [2][3] after key facts. DO NOT mention source names in the text. Plain text only, no markdown.",
   ${keyPointsInstruction}
 }
 
 Rules:
-- NEVER mention source names in the summary. Use [1], [2], etc. only.
-- NEVER say "details are not yet known" or "it remains unclear" if the sources contain those details
-- Include ALL specific names, numbers, stats, dates, and quotes from the sources
-- Write with substance — a knowledgeable Duke fan should learn something
-- Synthesize into a unified narrative, not a list of source-by-source facts
+- ONLY include facts explicitly stated in the sources above — nothing else
+- Do not invent dates, venues, opponents, stats, or context not in the text
+- NEVER mention source names in the summary — use [1], [2], etc. only
+- Synthesize into a unified narrative, not a per-source summary
+- If sources are brief, write a shorter summary — do not pad with invented details
 ${keyPointsRule}
 - Return ONLY the JSON object`,
         },

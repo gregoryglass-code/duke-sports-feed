@@ -1,5 +1,6 @@
 import { aggregateFeeds, type FeedItem } from "./aggregator";
 import { clusterStories, generateStoryId } from "./clusterer";
+import { extractArticleText } from "./reader";
 import { summarizeStory } from "./summarizer";
 import type { Story, StoryFeed } from "./types";
 
@@ -63,6 +64,57 @@ async function buildStory(
   return story;
 }
 
+/**
+ * Fetch full article text for the 2 most recent articles in each multi-article cluster.
+ * Capped at 10 total fetches, all run in parallel. Failures are silently ignored.
+ */
+async function enrichClusterArticles(
+  clusters: Awaited<ReturnType<typeof clusterStories>>,
+  items: FeedItem[]
+): Promise<void> {
+  const MAX_FETCHES = 10;
+  const ARTICLES_PER_CLUSTER = 2;
+
+  // Collect (articleIndex, FeedItem) pairs to enrich
+  const toFetch: { idx: number; item: FeedItem }[] = [];
+
+  for (const cluster of clusters) {
+    if (cluster.articleIndices.length < 2) continue;
+
+    // Sort by date descending, pick top N
+    const sorted = [...cluster.articleIndices]
+      .map((i) => ({ idx: i, item: items[i] }))
+      .sort((a, b) => new Date(b.item.pubDate).getTime() - new Date(a.item.pubDate).getTime());
+
+    for (const entry of sorted.slice(0, ARTICLES_PER_CLUSTER)) {
+      // Deduplicate by URL
+      if (!toFetch.some((f) => f.item.link === entry.item.link)) {
+        toFetch.push(entry);
+      }
+    }
+
+    if (toFetch.length >= MAX_FETCHES) break;
+  }
+
+  const capped = toFetch.slice(0, MAX_FETCHES);
+  if (capped.length === 0) return;
+
+  console.log(`[Enricher] Fetching full text for ${capped.length} articles...`);
+
+  const results = await Promise.allSettled(
+    capped.map(async ({ idx, item }) => {
+      const text = await extractArticleText(item.link);
+      if (text) {
+        items[idx].fullText = text;
+        console.log(`[Enricher] Got ${text.length} chars from ${item.source}: "${item.title.slice(0, 60)}"`);
+      }
+    })
+  );
+
+  const succeeded = results.filter((r) => r.status === "fulfilled").length;
+  console.log(`[Enricher] Done: ${succeeded}/${capped.length} succeeded`);
+}
+
 async function runPipeline(): Promise<StoryFeed> {
   const { items, sources, lastUpdated } = await aggregateFeeds();
 
@@ -73,6 +125,13 @@ async function runPipeline(): Promise<StoryFeed> {
   } catch (err) {
     console.error("Clustering failed, falling back to no clusters:", err);
     clusters = [];
+  }
+
+  // Enrich clustered articles with full text before summarization
+  try {
+    await enrichClusterArticles(clusters, items);
+  } catch (err) {
+    console.error("[Enricher] Failed, continuing with snippets only:", err);
   }
 
   // Track which articles are clustered

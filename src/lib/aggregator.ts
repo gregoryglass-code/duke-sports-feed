@@ -9,6 +9,7 @@ export interface FeedItem {
   category: FeedSource["category"];
   snippet: string;
   imageUrl: string | null;
+  fullText?: string;
 }
 
 type CustomItem = {

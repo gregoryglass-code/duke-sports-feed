@@ -18,7 +18,7 @@ async function fetchHtml(url: string): Promise<string> {
         "Mozilla/5.0 (compatible; DukeSportsFeed/1.0; +https://duke-sports-feed.vercel.app)",
       Accept: "text/html,application/xhtml+xml",
     },
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(8000),
   });
 
   if (!res.ok) {
@@ -76,4 +76,31 @@ export async function extractArticle(url: string): Promise<ArticleContent | null
     console.error(`Failed to extract article from ${url}:`, err);
     return null;
   }
+}
+
+/**
+ * Extract plain text from an article URL for use in summarization.
+ * Returns cleaned text truncated to ~3000 chars at a sentence boundary, or null on failure.
+ */
+export async function extractArticleText(url: string): Promise<string | null> {
+  const article = await extractArticle(url);
+  if (!article?.content) return null;
+
+  // Strip HTML tags and clean whitespace
+  const plain = article.content
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (plain.length <= 3000) return plain;
+
+  // Truncate at sentence boundary
+  const cutoff = plain.lastIndexOf(".", 3000);
+  return cutoff > 2000 ? plain.slice(0, cutoff + 1) : plain.slice(0, 3000);
 }
