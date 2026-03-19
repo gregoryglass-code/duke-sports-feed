@@ -45,12 +45,26 @@ function isDukeRelated(title: string, content: string): boolean {
   return DUKE_KEYWORDS.some((keyword) => text.includes(keyword));
 }
 
-function extractSnippet(content: string, maxLen = 200): string {
-  const clean = content
-    .replace(/<[^>]*>/g, "")
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/&mdash;/g, "\u2014")
+    .replace(/&ndash;/g, "\u2013");
+}
+
+function extractSnippet(content: string, maxLen = 200): string {
+  const clean = decodeHtmlEntities(
+    content
+      .replace(/<[^>]*>/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
   return clean.length > maxLen ? clean.slice(0, maxLen) + "..." : clean;
 }
 
@@ -136,7 +150,7 @@ async function fetchFeed(source: FeedSource): Promise<FeedItem[]> {
 
       if (source.dukeSpecific || isDukeRelated(title, content)) {
         items.push({
-          title,
+          title: decodeHtmlEntities(title),
           link,
           pubDate: item.pubDate ?? item.isoDate ?? new Date().toISOString(),
           source: sourceName,

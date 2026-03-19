@@ -226,11 +226,12 @@ export default async function StoryPage({ params }: PageProps) {
             </h2>
             <div className="space-y-3">
               {story.articles.map((article, i) => {
-                const slug = Buffer.from(article.link).toString("base64url");
                 return (
-                  <Link
+                  <a
                     key={i}
-                    href={`/article/${slug}`}
+                    href={article.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="block rounded-xl border border-[var(--color-border)] p-4 transition hover:border-[var(--color-cobalt-lite)] hover:bg-[var(--color-sky-light)]"
                   >
                     <div className="flex items-start gap-3">
@@ -255,7 +256,7 @@ export default async function StoryPage({ params }: PageProps) {
                         </h3>
                       </div>
                     </div>
-                  </Link>
+                  </a>
                 );
               })}
             </div>

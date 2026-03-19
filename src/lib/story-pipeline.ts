@@ -154,11 +154,35 @@ async function runPipeline(): Promise<StoryFeed> {
     }
   }
 
-  // Unclustered articles become standalone
+  // Unclustered articles — filter out low-value ones that rehash clustered content
   const unclustered = items.filter((_, i) => !clusteredIndices.has(i));
 
-  // Build standalone stories for unclustered articles
-  const standaloneStories = unclustered.map((item) => {
+  // Collect keywords from clustered story headlines for overlap detection
+  const clusteredKeywords = new Set<string>();
+  for (const story of stories) {
+    const words = story.headline.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/);
+    for (const w of words) {
+      if (w.length > 3) clusteredKeywords.add(w);
+    }
+  }
+
+  // Filter: keep standalone articles that bring something new
+  const filteredUnclustered = unclustered.filter((item) => {
+    const titleWords = item.title.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/);
+    const significantWords = titleWords.filter((w) => w.length > 3);
+    if (significantWords.length === 0) return true;
+    const overlapCount = significantWords.filter((w) => clusteredKeywords.has(w)).length;
+    const overlapRatio = overlapCount / significantWords.length;
+    // If >60% of the title words overlap with clustered stories, it's redundant
+    if (overlapRatio > 0.6) {
+      console.log(`[Pipeline] Filtering redundant standalone: "${item.title}"`);
+      return false;
+    }
+    return true;
+  });
+
+  // Build standalone stories for remaining unclustered articles
+  const standaloneStories = filteredUnclustered.map((item) => {
     const id = generateStoryId([item]);
     return {
       id,
