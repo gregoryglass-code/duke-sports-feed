@@ -34,7 +34,7 @@ function renderSummaryWithCitations(summary: string, articles: FeedItem[]) {
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`${article.source}: ${article.title}`}
-                className="inline-flex items-center justify-center h-[17px] min-w-[17px] px-1 rounded-full bg-[var(--color-sky)] text-[var(--color-cobalt-med)] text-[10px] font-bold no-underline hover:bg-[var(--color-cobalt-lite)] hover:text-white transition-colors align-super -translate-y-0.5"
+                className="inline-flex items-center justify-center h-[14px] min-w-[14px] px-0.5 rounded-full bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] text-[9px] font-semibold no-underline hover:border-[var(--color-cobalt-lite)] hover:text-[var(--color-cobalt)] transition-colors align-super -translate-y-0.5"
               >
                 {num}
               </a>
@@ -99,7 +99,31 @@ export default async function StoryPage({ params }: PageProps) {
   const nextStory = storyIndex < feed.stories.length - 1 ? feed.stories[storyIndex + 1] : null;
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg-page)]">
+    <div className="min-h-screen bg-[var(--color-bg-page)] relative">
+      {/* Prev/Next floating arrows */}
+      {prevStory && (
+        <Link
+          href={`/story/${prevStory.id}`}
+          className="fixed left-2 lg:left-6 top-1/2 -translate-y-1/2 z-30 hidden md:flex items-center justify-center h-10 w-10 rounded-full bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] shadow-sm hover:border-[var(--color-cobalt-lite)] hover:text-[var(--color-cobalt)] hover:shadow-md transition-all"
+          title={prevStory.headline}
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+        </Link>
+      )}
+      {nextStory && (
+        <Link
+          href={`/story/${nextStory.id}`}
+          className="fixed right-2 lg:right-6 top-1/2 -translate-y-1/2 z-30 hidden md:flex items-center justify-center h-10 w-10 rounded-full bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] shadow-sm hover:border-[var(--color-cobalt-lite)] hover:text-[var(--color-cobalt)] hover:shadow-md transition-all"
+          title={nextStory.headline}
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+          </svg>
+        </Link>
+      )}
+
       {/* Breadcrumb */}
       <div className="bg-[var(--color-sky-light)] border-b border-[var(--color-border)]">
         <div className="mx-auto max-w-3xl px-4 py-2.5">
@@ -162,7 +186,7 @@ export default async function StoryPage({ params }: PageProps) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--color-cobalt-lite)] hover:text-[var(--color-cobalt)]"
                   >
-                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-[var(--color-sky)] text-[var(--color-cobalt-med)] text-[10px] font-bold">
+                    <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-white border border-[var(--color-border)] text-[var(--color-text-muted)] text-[10px] font-semibold">
                       {i + 1}
                     </span>
                     {article.source}
@@ -239,49 +263,31 @@ export default async function StoryPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Prev / Next navigation */}
+        {/* Mobile prev/next (arrows hidden on mobile, show inline instead) */}
         {(prevStory || nextStory) && (
-          <div className="mt-8 grid grid-cols-2 gap-4">
+          <div className="mt-6 flex justify-between md:hidden">
             {prevStory ? (
               <Link
                 href={`/story/${prevStory.id}`}
-                className="fs-card p-4 group flex items-start gap-3 col-start-1"
+                className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-cobalt)] transition-colors"
               >
-                <svg className="h-5 w-5 mt-0.5 shrink-0 text-[var(--color-cobalt-lite)] group-hover:text-[var(--color-cobalt)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                 </svg>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                    Previous
-                  </span>
-                  <h4 className="text-sm font-medium text-[var(--color-text-primary)] line-clamp-2 group-hover:text-[var(--color-cobalt)] transition-colors mt-0.5">
-                    {prevStory.headline}
-                  </h4>
-                </div>
+                Previous
               </Link>
-            ) : (
-              <div />
-            )}
+            ) : <div />}
             {nextStory ? (
               <Link
                 href={`/story/${nextStory.id}`}
-                className="fs-card p-4 group flex items-start gap-3 text-right flex-row-reverse col-start-2"
+                className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-cobalt)] transition-colors"
               >
-                <svg className="h-5 w-5 mt-0.5 shrink-0 text-[var(--color-cobalt-lite)] group-hover:text-[var(--color-cobalt)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                Next
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
                 </svg>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                    Next
-                  </span>
-                  <h4 className="text-sm font-medium text-[var(--color-text-primary)] line-clamp-2 group-hover:text-[var(--color-cobalt)] transition-colors mt-0.5">
-                    {nextStory.headline}
-                  </h4>
-                </div>
               </Link>
-            ) : (
-              <div />
-            )}
+            ) : <div />}
           </div>
         )}
 
