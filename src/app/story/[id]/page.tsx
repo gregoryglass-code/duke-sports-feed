@@ -1,6 +1,7 @@
 import { getStoryFeed } from "@/lib/story-pipeline";
 import type { FeedItem } from "@/lib/aggregator";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export const revalidate = 600;
 
@@ -67,26 +68,8 @@ export default async function StoryPage({ params }: PageProps) {
   const story = feed.stories.find((s) => s.id === id);
 
   if (!story) {
-    return (
-      <div className="min-h-screen bg-[var(--color-bg-page)]">
-        <main className="mx-auto max-w-3xl px-4 py-12 text-center">
-          <div className="fs-card p-12">
-            <h1 className="font-display text-2xl text-[var(--color-cobalt)] mb-4">
-              Story not found
-            </h1>
-            <p className="text-[var(--color-text-secondary)] mb-6">
-              This story may have been updated. Check the latest feed.
-            </p>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-full bg-[var(--color-cobalt)] px-6 py-3 text-sm font-medium text-white transition hover:bg-[var(--color-cobalt-dark)]"
-            >
-              Go to Feed
-            </Link>
-          </div>
-        </main>
-      </div>
-    );
+    // Story ID is from a previous pipeline run — redirect to homepage
+    redirect("/");
   }
 
   const related = feed.stories.filter((s) =>
