@@ -3,32 +3,17 @@ import Link from "next/link";
 export function NavBar() {
   return (
     <>
-      {/* Top banner */}
-      <div className="bg-[var(--color-cobalt)] text-white text-center py-2 text-sm font-medium tracking-wide">
-        <span className="inline-flex items-center gap-2">
-          <svg className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-          HOW IT WORKS
-        </span>
-      </div>
-
       {/* Main nav */}
       <nav className="bg-white border-b border-[var(--color-border)] sticky top-0 z-50">
         <div className="mx-auto max-w-7xl px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
             <Link href="/" className="shrink-0">
-              <span
-                className="text-[var(--color-cobalt)] text-2xl tracking-tight"
-                style={{
-                  fontFamily: "'Georgia', 'Times New Roman', serif",
-                  fontStyle: "italic",
-                  fontWeight: 400,
-                }}
-              >
-                Fanstake
-              </span>
+              <img
+                src="/fanstake-logo.svg"
+                alt="Fanstake"
+                className="h-7 sm:h-8 w-auto"
+              />
             </Link>
 
             {/* Search */}

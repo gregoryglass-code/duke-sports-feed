@@ -20,7 +20,8 @@ function fallbackSummary(
 
 export async function summarizeStory(
   clusterHeadline: string,
-  articles: FeedItem[]
+  articles: FeedItem[],
+  isMultiSource: boolean
 ): Promise<SummaryResult> {
   try {
     const sorted = [...articles].sort(
@@ -34,30 +35,48 @@ export async function summarizeStory(
 
     const client = getClient();
 
+    const keyPointsInstruction = isMultiSource
+      ? '"keyPoints": []'
+      : '"keyPoints": ["Concise factual point 1", "Key detail 2", "Important context 3"]';
+
+    const keyPointsRule = isMultiSource
+      ? "- keyPoints MUST be an empty array [] for multi-source stories"
+      : "- Include 3-5 key points, each one concise sentence with specific facts";
+
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1500,
+      max_tokens: 2000,
       messages: [
         {
           role: "user",
-          content: `You are a thorough, authoritative sports news summarizer. Write a comprehensive synthesis of these ${articles.length} sources about Duke athletics.
+          content: `You are a thorough, substantive sports journalist writing about Duke athletics. Your writing style:
+- Smart, specific, and grounded in facts — like The Athletic, not a wire service
+- Every claim includes concrete details: full names, stats, dates, game scores, record numbers
+- You explain the WHY behind developments, not just the WHAT
+- Accessible and polished prose, conversational but clearly edited
+- You NEVER hedge or say "details are unknown" when the sources contain those details — extract every specific fact available
+- You synthesize across sources to build a complete picture a knowledgeable fan would want
 
-Sources:
+Synthesize these ${articles.length} sources:
+
 ${sourceList}
+
+CRITICAL: Extract and include EVERY specific detail from the sources — names, numbers, dates, stats, records, quotes. If a source mentions a person's name, use it. If it has a stat line, include it. Never generalize when specifics are available.
 
 Return JSON:
 {
-  "headline": "A clear, specific, factual headline (max 90 chars). Straight news — no clickbait, no opinion.",
-  "summary": "A thorough 2-4 paragraph synthesis that covers all the key facts, context, and developments. Write in a clear, direct, informative style — like a well-written news briefing. Use inline citation numbers [1] or [2][3] after specific facts to reference the numbered sources above. DO NOT mention source names anywhere in the text — no 'According to ESPN', 'Ball Durham reports', etc. Just state the facts and cite with numbers. Plain text only, no markdown.",
-  "keyPoints": ["Clear factual point 1", "Key development 2", "Important detail 3"]
+  "headline": "A specific, factual headline (max 90 chars). Include names/numbers when relevant.",
+  "summary": "A thorough 2-4 paragraph synthesis. Write with clarity and substance. Use inline citation numbers [1] or [2][3] after key facts to reference the numbered sources. DO NOT mention source names in the text — no 'According to ESPN', 'Ball Durham reports', etc. State facts directly and cite with numbers. The reader should come away fully informed on this story. Plain text only, no markdown.",
+  ${keyPointsInstruction}
 }
 
 Rules:
 - NEVER mention source names in the summary. Use [1], [2], etc. only.
-- Be thorough and informative — cover all significant details from across sources
-- Write with clarity and confidence, straight news tone
-- Synthesize into a unified narrative, not a list of what each source said
-- 3-5 key points, each one concise sentence
+- NEVER say "details are not yet known" or "it remains unclear" if the sources contain those details
+- Include ALL specific names, numbers, stats, dates, and quotes from the sources
+- Write with substance — a knowledgeable Duke fan should learn something
+- Synthesize into a unified narrative, not a list of source-by-source facts
+${keyPointsRule}
 - Return ONLY the JSON object`,
         },
       ],

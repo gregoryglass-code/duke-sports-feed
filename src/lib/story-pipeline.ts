@@ -36,7 +36,7 @@ async function buildStory(
   let summary: { headline: string; summary: string; keyPoints: string[] };
 
   if (articles.length >= 2) {
-    summary = await summarizeStory(headline, articles);
+    summary = await summarizeStory(headline, articles, uniqueSources.size > 1);
   } else {
     // Standalone article — skip AI
     summary = {

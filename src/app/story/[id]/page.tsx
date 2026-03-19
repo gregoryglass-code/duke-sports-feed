@@ -171,8 +171,8 @@ export default async function StoryPage({ params }: PageProps) {
               </div>
             )}
 
-            {/* Key Points */}
-            {story.keyPoints.length > 0 && (
+            {/* Key Points — only for single-source stories */}
+            {story.sourceCount <= 1 && story.keyPoints.length > 0 && (
               <div className="rounded-xl bg-[var(--color-sky-light)] border border-[var(--color-border)] p-5 mb-8">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-cobalt-dark)] mb-3">
                   Key Points
