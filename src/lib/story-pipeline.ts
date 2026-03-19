@@ -199,15 +199,32 @@ async function runPipeline(): Promise<StoryFeed> {
   };
 }
 
+import { unstable_cache } from "next/cache";
+
 /**
- * In-process cache ensures the same StoryFeed is returned for all pages
- * during a single build or serverless invocation. This is critical so
- * the homepage and generateStaticParams produce matching story IDs.
+ * Persistent cache via Vercel's data cache. Ensures the homepage and ALL
+ * story pages see the exact same StoryFeed for the entire revalidation
+ * window — even across different serverless invocations.
+ *
+ * Without this, each serverless instance re-runs the pipeline, producing
+ * different clusters with different IDs, causing "Story not found" errors
+ * when the homepage links to IDs the story page has never seen.
  */
-let cachedFeed: StoryFeed | null = null;
+const getCachedStoryFeed = unstable_cache(
+  async () => runPipeline(),
+  ["story-feed"],
+  { revalidate: 600 }
+);
+
+// In-process fallback for local dev (unstable_cache works in prod on Vercel)
+let localCache: StoryFeed | null = null;
 
 export async function getStoryFeed(): Promise<StoryFeed> {
-  if (cachedFeed) return cachedFeed;
-  cachedFeed = await runPipeline();
-  return cachedFeed;
+  // In development, use in-process cache for speed
+  if (process.env.NODE_ENV === "development") {
+    if (localCache) return localCache;
+    localCache = await runPipeline();
+    return localCache;
+  }
+  return getCachedStoryFeed();
 }
