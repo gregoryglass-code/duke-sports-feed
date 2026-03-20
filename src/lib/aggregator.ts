@@ -1,3 +1,16 @@
+/**
+ * RSS Feed Aggregator
+ *
+ * Fetches articles from all configured feed sources (Bing News + direct RSS),
+ * normalizes them into FeedItem objects, and applies deduplication + per-source
+ * capping to prevent any single source from dominating the feed.
+ *
+ * Bing News feeds require special handling: redirect URLs are unwrapped to
+ * real article URLs, and publisher names are extracted from the News:Source field.
+ *
+ * @depends feeds.ts — feed source definitions and Duke keywords
+ * @output FeedItem[] — normalized, deduped, capped, sorted by date
+ */
 import Parser from "rss-parser";
 import { FEED_SOURCES, DUKE_KEYWORDS, type FeedSource } from "./feeds";
 

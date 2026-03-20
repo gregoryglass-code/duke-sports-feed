@@ -1,3 +1,17 @@
+/**
+ * AI Story Clusterer
+ *
+ * Groups related articles into story clusters using Claude Haiku 4.5.
+ * Articles about the same game, player, or news event from different
+ * sources are merged into a single cluster with a specific headline.
+ *
+ * Also generates deterministic story IDs via SHA-256 hash of sorted
+ * article URLs (format: s-{first 8 hex chars}).
+ *
+ * @depends ai-client.ts — Anthropic SDK singleton
+ * @input FeedItem[] (up to 40 articles with title + 120-char snippet)
+ * @output StoryCluster[] — each with headline + array of article indices
+ */
 import { createHash } from "crypto";
 import type { FeedItem } from "./aggregator";
 import { getClient } from "./ai-client";

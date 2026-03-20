@@ -1,3 +1,17 @@
+/**
+ * AI Story Summarizer
+ *
+ * Generates grounded summaries with inline [1][2] citations using Claude Haiku 4.5.
+ * Prefers full article text (from enrichment) over RSS snippets for richer output.
+ *
+ * Critical design: the grounding rule prevents hallucination by restricting the AI
+ * to ONLY facts explicitly present in the provided source text. This was the #1
+ * quality issue during development — without grounding, Haiku invents plausible details.
+ *
+ * @depends ai-client.ts — Anthropic SDK singleton
+ * @input cluster headline + FeedItem[] (with optional fullText)
+ * @output { headline, summary (with [N] citations), keyPoints }
+ */
 import type { FeedItem } from "./aggregator";
 import { getClient } from "./ai-client";
 

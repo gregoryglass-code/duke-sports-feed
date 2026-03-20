@@ -1,3 +1,16 @@
+/**
+ * Story Pipeline Orchestrator
+ *
+ * Runs the full pipeline: aggregate → cluster → enrich → summarize → cache.
+ * Implements two-tier caching (L1 in-memory + L2 Redis) with distributed
+ * locking to ensure all Vercel serverless isolates see the same story IDs.
+ *
+ * Also filters redundant standalone articles (>60% keyword overlap with
+ * clustered story headlines) and links related stories by category.
+ *
+ * @depends aggregator.ts, clusterer.ts, summarizer.ts, reader.ts, feed-cache.ts
+ * @entry getStoryFeed() — the only function pages should call
+ */
 import { aggregateFeeds, type FeedItem } from "./aggregator";
 import { clusterStories, generateStoryId } from "./clusterer";
 import {

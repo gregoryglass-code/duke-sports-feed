@@ -170,9 +170,7 @@ function StorySection({ title, stories }: { title: string; stories: Story[] }) {
 
 export default async function Home() {
   const feed = await getStoryFeed();
-  const { stories, sources } = feed;
-
-  const activeSources = sources.filter((s) => s.status === "ok" && s.count > 0);
+  const { stories } = feed;
 
   // Split stories: clustered (2+ articles, AI-summarized) vs standalone
   const clustered = stories.filter((s) => s.articles.length > 1);
@@ -224,26 +222,8 @@ export default async function Home() {
           </>
         )}
 
-        {/* Sources footer */}
-        <footer className="mt-6 border-t border-[var(--color-border)] pt-6 pb-12">
-          <h3 className="mb-3 text-sm font-semibold text-[var(--color-text-secondary)]">
-            Sources
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {sources.map((s) => (
-              <span
-                key={s.name}
-                className={`fs-pill ${
-                  s.status === "ok" && s.count > 0
-                    ? "bg-[var(--color-sky)] text-[var(--color-cobalt-dark)]"
-                    : "bg-red-100 text-red-600"
-                }`}
-              >
-                {s.name} ({s.count})
-              </span>
-            ))}
-          </div>
-        </footer>
+        {/* Bottom spacing */}
+        <div className="pb-12" />
       </main>
     </div>
   );

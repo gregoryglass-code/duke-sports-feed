@@ -1,3 +1,15 @@
+/**
+ * Article Text Extractor
+ *
+ * Fetches and extracts readable article text from URLs using Mozilla's
+ * Readability algorithm with linkedom (lightweight DOM — NOT jsdom, which
+ * exceeds Vercel serverless memory limits).
+ *
+ * Used by the pipeline to enrich clustered articles with full text before
+ * AI summarization. Text is truncated to ~3000 chars at a sentence boundary.
+ *
+ * @output ArticleContent (HTML + metadata) or plain text string
+ */
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 

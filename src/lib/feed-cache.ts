@@ -1,3 +1,21 @@
+/**
+ * Shared Feed Cache (Upstash Redis)
+ *
+ * Provides a shared L2 cache so all Vercel serverless isolates see the same
+ * story feed (and therefore the same story IDs). Without this, different
+ * isolates run the AI pipeline independently and produce different results.
+ *
+ * Includes a distributed lock (Redis SET NX) to prevent multiple isolates
+ * from running the expensive pipeline simultaneously. Also stores the
+ * previous feed (2hr TTL) so old story IDs remain resolvable.
+ *
+ * Gracefully degrades: if Redis credentials are missing or Redis is down,
+ * all functions return null/void and the app falls back to in-memory caching.
+ *
+ * IMPORTANT: Redis client must be initialized with `cache: "default"` (not
+ * the @upstash/redis default of "no-store") to avoid Next.js DYNAMIC_SERVER_USAGE
+ * errors on ISR/static routes.
+ */
 import { Redis } from "@upstash/redis";
 import type { StoryFeed } from "./types";
 
@@ -28,7 +46,7 @@ function getRedis(): Redis | null {
     return null;
   }
 
-  redis = new Redis({ url, token });
+  redis = new Redis({ url, token, cache: "default" });
   return redis;
 }
 
