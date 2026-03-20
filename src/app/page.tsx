@@ -174,13 +174,17 @@ export default async function Home() {
 
   const activeSources = sources.filter((s) => s.status === "ok" && s.count > 0);
 
-  // Split stories: multi-source (clustered) vs standalone
-  const multiSource = stories.filter((s) => s.sourceCount > 1);
-  const standalone = stories.filter((s) => s.sourceCount === 1);
+  // Split stories: clustered (2+ articles, AI-summarized) vs standalone
+  const clustered = stories.filter((s) => s.articles.length > 1);
+  const standalone = stories.filter((s) => s.articles.length === 1);
 
-  // Top stories = multi-source stories first, then most recent
-  const heroStories = multiSource.slice(0, 3);
-  const remainingMulti = multiSource.slice(3);
+  // Top stories = clustered stories first (most articles = most coverage)
+  const heroStories = clustered
+    .sort((a, b) => b.articles.length - a.articles.length)
+    .slice(0, 3);
+  const remainingMulti = clustered
+    .sort((a, b) => b.articles.length - a.articles.length)
+    .slice(3);
 
   // Category splits (from all stories)
   const basketball = stories.filter((s) => s.category === "basketball");

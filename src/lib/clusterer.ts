@@ -21,9 +21,9 @@ export async function clusterStories(
   // Use all items (already capped at ~30-40 by aggregator's per-source limit)
   const capped = items.slice(0, 40);
 
-  // Include source name so the AI can see cross-source coverage
+  // Include source name and snippet so the AI can see cross-source coverage
   const articleLines = capped
-    .map((item, i) => `${i}. [${item.source}] ${item.title}`)
+    .map((item, i) => `${i}. [${item.source}] ${item.title} — ${item.snippet.slice(0, 120)}`)
     .join("\n");
 
   const client = getClient();
@@ -34,24 +34,26 @@ export async function clusterStories(
     messages: [
       {
         role: "user",
-        content: `You are a news editor clustering articles for a Duke sports news briefing.
+        content: `You are a news editor clustering articles for a Duke sports news briefing. Your job is to group articles covering the SAME story from DIFFERENT news outlets.
 
-Group articles that cover the SAME TOPIC into clusters. Be aggressive about grouping — articles don't need identical titles. Group them if they cover:
-- The same game or matchup (previews, recaps, odds, analysis all belong together)
-- The same player story (injury updates, milestones, reactions from different outlets)
-- The same news event (coaching news, recruiting, rankings from multiple angles)
-- The same broader narrative (March Madness preparation, tournament path, bracket analysis)
+CLUSTER AGGRESSIVELY. These are all about Duke sports — most articles will relate to each other. Group articles if they cover:
+- The same game (previews, odds, recaps, reactions, analysis — ALL belong in one cluster)
+- The same player (injury reports, profiles, stats discussions across outlets)
+- The same news event (coaching hires, recruiting, rankings from any angle)
+- The same narrative (tournament path, title odds, team concerns)
 
-Articles from DIFFERENT sources about the same topic are the most valuable clusters.
+Example: "Duke vs Siena prediction" (Covers.com) + "Duke debacle vs Siena" (Ball Durham) + "Duke survives Siena" (ESPN) = ONE cluster about the Duke-Siena game.
 
+Articles:
 ${articleLines}
 
 Return JSON: {"clusters":[{"headline":"A specific headline","articleIndices":[0,3,7]}]}
 
 Rules:
-- Cluster 2+ articles covering the same topic, even if from different angles
-- Prioritize grouping articles from DIFFERENT sources over same-source clusters
-- Headlines should be specific (e.g., "Duke Defeats Virginia to Win ACC Championship")
+- MOST articles should end up in a cluster. Standalone articles should be rare — only if truly unique topic.
+- Articles about the same game from different sources MUST be in the same cluster, even if one is a preview and another is a recap
+- Group broadly: odds articles, injury reports, and game previews for the same matchup all go together
+- Headlines should be specific (e.g., "Duke Survives Siena 71-65 in NCAA Tournament Opener")
 - Return ONLY valid JSON, no other text`,
       },
     ],
