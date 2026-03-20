@@ -1,4 +1,5 @@
 import { getStoryFeed } from "@/lib/story-pipeline";
+import { getPreviousFeed } from "@/lib/feed-cache";
 import type { FeedItem } from "@/lib/aggregator";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -67,19 +68,29 @@ export default async function StoryPage({ params }: PageProps) {
   const feed = await getStoryFeed();
   const story = feed.stories.find((s) => s.id === id);
 
+  // If story not in current feed, check previous pipeline run before giving up
+  let activeFeed = feed;
+
   if (!story) {
-    // Story ID is from a previous pipeline run — redirect to homepage
-    redirect("/");
+    const prevFeed = await getPreviousFeed();
+    const prevStoryMatch = prevFeed?.stories.find((s) => s.id === id);
+    if (!prevStoryMatch || !prevFeed) {
+      redirect("/");
+    }
+    activeFeed = prevFeed;
   }
 
-  const related = feed.stories.filter((s) =>
-    story.relatedStoryIds.includes(s.id)
+  // At this point we have a valid story (from current or previous feed)
+  const activeStory = story ?? activeFeed.stories.find((s) => s.id === id)!;
+
+  const related = activeFeed.stories.filter((s) =>
+    activeStory.relatedStoryIds.includes(s.id)
   );
 
   // Find prev/next stories for pagination
-  const storyIndex = feed.stories.findIndex((s) => s.id === id);
-  const prevStory = storyIndex > 0 ? feed.stories[storyIndex - 1] : null;
-  const nextStory = storyIndex < feed.stories.length - 1 ? feed.stories[storyIndex + 1] : null;
+  const storyIndex = activeFeed.stories.findIndex((s) => s.id === id);
+  const prevStory = storyIndex > 0 ? activeFeed.stories[storyIndex - 1] : null;
+  const nextStory = storyIndex < activeFeed.stories.length - 1 ? activeFeed.stories[storyIndex + 1] : null;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-page)] relative">
@@ -116,17 +127,17 @@ export default async function StoryPage({ params }: PageProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
             <span className="text-[var(--color-text-secondary)] truncate max-w-[300px]">
-              {story.headline}
+              {activeStory.headline}
             </span>
           </div>
         </div>
       </div>
 
       {/* Hero image */}
-      {story.imageUrl && (
+      {activeStory.imageUrl && (
         <div className="relative h-[300px] sm:h-[400px] overflow-hidden bg-[var(--color-cobalt-dark)]">
           <img
-            src={story.imageUrl}
+            src={activeStory.imageUrl}
             alt=""
             className="h-full w-full object-cover opacity-90"
           />
@@ -136,32 +147,32 @@ export default async function StoryPage({ params }: PageProps) {
 
       {/* Story content */}
       <main className="mx-auto max-w-3xl px-4">
-        <div className={`${story.imageUrl ? "-mt-20 relative z-10" : "mt-8"}`}>
+        <div className={`${activeStory.imageUrl ? "-mt-20 relative z-10" : "mt-8"}`}>
           <div className="fs-card p-6 sm:p-10">
             {/* Meta */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <span className="fs-pill bg-[var(--color-sky)] text-[var(--color-cobalt-dark)]">
-                {story.category}
+                {activeStory.category}
               </span>
               <span className="text-[11px] text-[var(--color-text-muted)]">
-                {timeAgo(story.latestDate)}
+                {timeAgo(activeStory.latestDate)}
               </span>
-              {story.sourceCount > 1 && (
+              {activeStory.sourceCount > 1 && (
                 <span className="fs-pill bg-[var(--color-cobalt)] text-white">
-                  {story.sourceCount} sources
+                  {activeStory.sourceCount} sources
                 </span>
               )}
             </div>
 
             {/* Headline */}
             <h1 className="font-display text-2xl sm:text-3xl text-[var(--color-cobalt)] mb-6">
-              {story.headline}
+              {activeStory.headline}
             </h1>
 
             {/* Source pills with citation numbers */}
-            {story.sourceCount > 1 && (
+            {activeStory.sourceCount > 1 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                {story.articles.map((article, i) => (
+                {activeStory.articles.map((article, i) => (
                   <a
                     key={i}
                     href={article.link}
@@ -179,13 +190,13 @@ export default async function StoryPage({ params }: PageProps) {
             )}
 
             {/* Key Points — only for single-source stories */}
-            {story.sourceCount <= 1 && story.keyPoints.length > 0 && (
+            {activeStory.sourceCount <= 1 && activeStory.keyPoints.length > 0 && (
               <div className="rounded-xl bg-[var(--color-sky-light)] border border-[var(--color-border)] p-5 mb-8">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-cobalt-dark)] mb-3">
                   Key Points
                 </h2>
                 <ul className="space-y-2">
-                  {story.keyPoints.map((point, i) => (
+                  {activeStory.keyPoints.map((point, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-[var(--color-text-primary)]">
                       <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-cobalt)]" />
                       {point}
@@ -197,7 +208,7 @@ export default async function StoryPage({ params }: PageProps) {
 
             {/* Summary with inline citations */}
             <div className="text-[var(--color-text-primary)] text-base sm:text-lg leading-relaxed whitespace-pre-line">
-              {renderSummaryWithCitations(story.summary, story.articles)}
+              {renderSummaryWithCitations(activeStory.summary, activeStory.articles)}
             </div>
 
             {/* Divider */}
@@ -205,10 +216,10 @@ export default async function StoryPage({ params }: PageProps) {
 
             {/* Sources section */}
             <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-4">
-              Sources ({story.articles.length})
+              Sources ({activeStory.articles.length})
             </h2>
             <div className="space-y-3">
-              {story.articles.map((article, i) => {
+              {activeStory.articles.map((article, i) => {
                 return (
                   <a
                     key={i}

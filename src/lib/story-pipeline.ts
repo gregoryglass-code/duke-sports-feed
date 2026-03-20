@@ -1,5 +1,11 @@
 import { aggregateFeeds, type FeedItem } from "./aggregator";
 import { clusterStories, generateStoryId } from "./clusterer";
+import {
+  getCachedFeed,
+  setCachedFeed,
+  acquireLock,
+  releaseLock,
+} from "./feed-cache";
 import { extractArticleText } from "./reader";
 import { summarizeStory } from "./summarizer";
 import type { Story, StoryFeed } from "./types";
@@ -224,17 +230,53 @@ async function runPipeline(): Promise<StoryFeed> {
 }
 
 /**
- * In-process cache that works both in dev and on Vercel.
- * On Vercel during build: all pages share the same process, so
- * the homepage and generateStaticParams get the same data.
- * On Vercel at runtime: each serverless invocation gets its own
- * process, but ISR + generateStaticParams ensures story pages
- * are pre-rendered at build time with matching IDs.
+ * Two-tier cache: L1 (in-memory, same isolate) + L2 (Upstash Redis, shared).
+ *
+ * L1 avoids hitting Redis on every request within the same serverless invocation.
+ * L2 ensures all Vercel isolates see the same story IDs — eliminates "Story not found".
+ *
+ * A distributed lock prevents multiple isolates from running the pipeline simultaneously.
+ * If KV is unavailable, falls back to running the pipeline directly.
  */
 let cachedFeed: StoryFeed | null = null;
 
 export async function getStoryFeed(): Promise<StoryFeed> {
+  // L1: in-memory (same isolate)
   if (cachedFeed) return cachedFeed;
-  cachedFeed = await runPipeline();
-  return cachedFeed;
+
+  // L2: shared KV cache
+  const kvFeed = await getCachedFeed();
+  if (kvFeed) {
+    cachedFeed = kvFeed;
+    return kvFeed;
+  }
+
+  // Cache miss — try to acquire lock so only one isolate runs the pipeline
+  const gotLock = await acquireLock();
+
+  if (!gotLock) {
+    // Another isolate is building — wait and retry KV
+    console.log("[Pipeline] Lock held by another instance, waiting 3s...");
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const retryFeed = await getCachedFeed();
+    if (retryFeed) {
+      cachedFeed = retryFeed;
+      return retryFeed;
+    }
+
+    // Still nothing — run pipeline as fallback (better than failing)
+    console.log("[Pipeline] Retry failed, running pipeline as fallback");
+  }
+
+  try {
+    const feed = await runPipeline();
+    cachedFeed = feed;
+    await setCachedFeed(feed);
+    return feed;
+  } finally {
+    if (gotLock) {
+      await releaseLock();
+    }
+  }
 }

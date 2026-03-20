@@ -186,11 +186,6 @@ export default async function Home() {
     .sort((a, b) => b.articles.length - a.articles.length)
     .slice(3);
 
-  // Category splits (from all stories)
-  const basketball = stories.filter((s) => s.category === "basketball");
-  const football = stories.filter((s) => s.category === "football");
-  const conference = stories.filter((s) => s.category === "conference");
-
   return (
     <div className="min-h-screen bg-[var(--color-bg-page)]">
       {/* Main content */}
@@ -222,14 +217,9 @@ export default async function Home() {
               <StorySection title="More Stories" stories={remainingMulti} />
             )}
 
-            {/* Category carousels */}
-            <StorySection title="Basketball" stories={basketball.slice(0, 15)} />
-            <StorySection title="Football" stories={football.slice(0, 15)} />
-            <StorySection title="ACC" stories={conference.slice(0, 15)} />
-
-            {/* Standalone / latest */}
+            {/* Latest standalone articles */}
             {standalone.length > 0 && (
-              <StorySection title="More News" stories={standalone.slice(0, 15)} />
+              <StorySection title="Latest" stories={standalone.slice(0, 6)} />
             )}
           </>
         )}
