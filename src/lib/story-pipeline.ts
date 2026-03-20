@@ -236,7 +236,7 @@ import { unstable_cache } from "next/cache";
  */
 const getCachedStoryFeed = unstable_cache(
   async () => runPipeline(),
-  ["story-feed"],
+  ["story-feed-v2"],
   { revalidate: 3600 } // 1 hour — outlives ISR (600s) so story IDs remain valid
 );
 
