@@ -1,8 +1,9 @@
 import { getStoryFeed } from "@/lib/story-pipeline";
 import { getPreviousFeed } from "@/lib/feed-cache";
 import type { FeedItem } from "@/lib/aggregator";
+import { hashArticleUrl } from "@/lib/clusterer";
+import type { Story, StoryFeed } from "@/lib/types";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 export const revalidate = 600;
 
@@ -53,6 +54,21 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Find a story by its current ID, falling back to a per-article anchor hash
+ * lookup. Clustering is non-deterministic across pipeline runs, so a story's
+ * cluster-based ID can drift even when the underlying articles are unchanged.
+ * Hashing each article URL and comparing against the requested ID lets us
+ * resolve a stale link back to the story that now owns those articles.
+ */
+function findStory(feed: StoryFeed, id: string): Story | null {
+  const direct = feed.stories.find((s) => s.id === id);
+  if (direct) return direct;
+  return feed.stories.find((s) =>
+    s.articles.some((a) => hashArticleUrl(a.link) === id)
+  ) ?? null;
+}
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -66,29 +82,29 @@ function timeAgo(dateStr: string): string {
 export default async function StoryPage({ params }: PageProps) {
   const { id } = await params;
   const feed = await getStoryFeed();
-  const story = feed.stories.find((s) => s.id === id);
 
-  // If story not in current feed, check previous pipeline run before giving up
-  let activeFeed = feed;
+  let activeFeed: StoryFeed = feed;
+  let activeStory = findStory(feed, id);
 
-  if (!story) {
+  if (!activeStory) {
     const prevFeed = await getPreviousFeed();
-    const prevStoryMatch = prevFeed?.stories.find((s) => s.id === id);
-    if (!prevStoryMatch || !prevFeed) {
-      redirect("/");
+    const prevMatch = prevFeed ? findStory(prevFeed, id) : null;
+    if (prevFeed && prevMatch) {
+      activeFeed = prevFeed;
+      activeStory = prevMatch;
     }
-    activeFeed = prevFeed;
   }
 
-  // At this point we have a valid story (from current or previous feed)
-  const activeStory = story ?? activeFeed.stories.find((s) => s.id === id)!;
+  if (!activeStory) {
+    return <StoryMoved />;
+  }
 
   const related = activeFeed.stories.filter((s) =>
     activeStory.relatedStoryIds.includes(s.id)
   );
 
   // Find prev/next stories for pagination
-  const storyIndex = activeFeed.stories.findIndex((s) => s.id === id);
+  const storyIndex = activeFeed.stories.findIndex((s) => s.id === activeStory.id);
   const prevStory = storyIndex > 0 ? activeFeed.stories[storyIndex - 1] : null;
   const nextStory = storyIndex < activeFeed.stories.length - 1 ? activeFeed.stories[storyIndex + 1] : null;
 
@@ -333,6 +349,32 @@ export default async function StoryPage({ params }: PageProps) {
         )}
 
         <div className="pb-16" />
+      </main>
+    </div>
+  );
+}
+
+function StoryMoved() {
+  return (
+    <div className="min-h-screen bg-[var(--color-bg-page)]">
+      <main className="mx-auto max-w-3xl px-4 pt-16">
+        <div className="fs-card p-8 sm:p-10 text-center">
+          <h1 className="font-display text-2xl text-[var(--color-cobalt)] mb-3">
+            This story has moved on
+          </h1>
+          <p className="text-[var(--color-text-secondary)] mb-6">
+            The feed has refreshed and this story is no longer in rotation. Head back to the homepage for the latest Duke coverage.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-full bg-[var(--color-cobalt)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-cobalt-dark)]"
+          >
+            Back to home
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
+        </div>
       </main>
     </div>
   );

@@ -5,8 +5,10 @@
  * Articles about the same game, player, or news event from different
  * sources are merged into a single cluster with a specific headline.
  *
- * Also generates deterministic story IDs via SHA-256 hash of sorted
- * article URLs (format: s-{first 8 hex chars}).
+ * Story IDs are SHA-256 hashes of a single "anchor" article URL — the
+ * earliest-published article in the cluster, with URL as tiebreaker.
+ * Hashing only the anchor (not the full cluster) keeps IDs stable when
+ * the AI adds or drops peripheral articles across pipeline runs.
  *
  * @depends ai-client.ts — Anthropic SDK singleton
  * @input FeedItem[] (up to 40 articles with title + 120-char snippet)
@@ -21,10 +23,22 @@ export interface StoryCluster {
   articleIndices: number[];
 }
 
-export function generateStoryId(articles: FeedItem[]): string {
-  const sorted = articles.map((a) => a.link).sort();
-  const hash = createHash("sha256").update(sorted.join("|")).digest("hex");
+export function pickAnchorArticle(articles: FeedItem[]): FeedItem {
+  return [...articles].sort((a, b) => {
+    const ta = new Date(a.pubDate).getTime();
+    const tb = new Date(b.pubDate).getTime();
+    if (ta !== tb) return ta - tb;
+    return a.link.localeCompare(b.link);
+  })[0];
+}
+
+export function hashArticleUrl(url: string): string {
+  const hash = createHash("sha256").update(url).digest("hex");
   return `s-${hash.slice(0, 8)}`;
+}
+
+export function generateStoryId(articles: FeedItem[]): string {
+  return hashArticleUrl(pickAnchorArticle(articles).link);
 }
 
 export async function clusterStories(
